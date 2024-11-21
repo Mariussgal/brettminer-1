@@ -1,6 +1,6 @@
 import { useAccount } from "wagmi";
 import logo from "./logo.png";
-
+import Swal from "sweetalert2";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 import React, { useState, useEffect } from "react";
@@ -10,7 +10,7 @@ import BrettMinerABI from "./abis/BrettMinerABI.json";
 import "./App.css"; // Assurez-vous que ce fichier est bien importé
 
 // Adresse du contrat et du token Brett
-const contractAddress = "0xd2D8d271ef45A2A975E468A39A6810427365210a";
+const contractAddress = "0xb69360dB3696f35b5469b65c03Abd5538c493c82";
 const brettTokenAddress = "0x532f27101965dd16442e59d40670faf5ebb142e4";
 
 const BOX = styled.section`
@@ -70,6 +70,17 @@ function App() {
     "0x0000000000000000000000000000000000000000"
   );
 
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const referralFromUrl = urlParams.get("ref");
+
+    if (referralFromUrl) {
+      setReferral(referralFromUrl); // Si présent, on définit 'referral'
+    } else {
+      setReferral("0x0000000000000000000000000000000000000000"); // Sinon on met l'adresse par défaut
+    }
+  }, []);
+
   const initializeContract = async () => {
     if (window.ethereum) {
       try {
@@ -85,7 +96,15 @@ function App() {
         console.error("Error initializing contract:", err);
       }
     } else {
-      alert("MetaMask is not installed. Please install it to use this app.");
+      Swal.fire({
+        title: "Oops...",
+        text: "MetaMask is not installed. Please install it to use this app.",
+        icon: "error",
+        confirmButtonText: "OK",
+        width: "400px",
+        background: "#f4f4f4", // Couleur d'arrière-plan
+        confirmButtonColor: "#0553F7",
+      });
     }
   };
 
@@ -167,11 +186,17 @@ function App() {
     try {
       const tx = await brettMinerContract.depositETH(
         ethers.utils.parseEther(amount),
-        "0x0000000000000000000000000000000000000000",
+        referral, // Utilisation de l'adresse de parrainage
         { value: ethers.utils.parseEther(amount) }
       );
       await tx.wait();
-      alert("Deposit ETH successful!");
+      Swal.fire({
+        title: "Success!",
+        text: "Deposit ETH was successful!",
+        icon: "success",
+        confirmButtonText: "OK",
+      });
+
       fetchTVL();
     } catch (err) {
       console.error("Error during ETH deposit:", err);
@@ -192,27 +217,40 @@ function App() {
     const brettMinerContract = await initializeContract();
 
     try {
+      // Vérification de l'autorisation de transfert du token
       const allowance = await brettTokenContract.allowance(
         walletAddress,
         contractAddress
       );
       const amountInWei = ethers.utils.parseUnits(amount, 18);
 
+      // Si l'autorisation est insuffisante, approuver le contrat pour dépenser des tokens
       if (allowance.lt(amountInWei)) {
         const approveTx = await brettTokenContract.approve(
           contractAddress,
           ethers.constants.MaxUint256
         );
         await approveTx.wait();
-        alert("Approval successful!");
+        Swal.fire({
+          title: "Success!",
+          text: "Approval successful!",
+          icon: "success",
+          confirmButtonText: "OK",
+        });
       }
 
+      // Déposer les tokens en utilisant l'adresse de parrainage
       const depositTx = await brettMinerContract.depositBrett(
         amountInWei,
-        "0x0000000000000000000000000000000000000000"
+        referral // Utilisation de l'adresse de parrainage ici
       );
       await depositTx.wait();
-      alert("Deposit Brett successful!");
+      Swal.fire({
+        title: "Success!",
+        text: "Deposit Brett successful!",
+        icon: "success",
+        confirmButtonText: "OK",
+      });
     } catch (err) {
       console.error("Error during Brett deposit:", err);
     }
@@ -225,21 +263,17 @@ function App() {
         "0x0000000000000000000000000000000000000000"
       );
       await tx.wait();
-      alert("Compound successful!");
+      Swal.fire({
+        title: "Success!",
+        text: "Compound successful!",
+        icon: "success",
+        confirmButtonText: "OK",
+        width: "400px",
+        background: "#f4f4f4", // Couleur d'arrière-plan
+        confirmButtonColor: "#0553F7",
+      });
     } catch (err) {
       console.error("Error during compound:", err);
-    }
-  };
-
-  const copyReferralLink = () => {
-    if (walletAddress) {
-      const referralLink = `${window.location.origin}/?ref=${walletAddress}`;
-      navigator.clipboard
-        .writeText(referralLink)
-        .then(() => alert("Referral link copied to clipboard!"))
-        .catch(() => alert("Failed to copy referral link."));
-    } else {
-      alert("Connect your wallet to generate a referral link.");
     }
   };
 
@@ -248,7 +282,15 @@ function App() {
     try {
       const tx = await brettMinerContract.withdraw();
       await tx.wait();
-      alert("Withdraw successful!");
+      Swal.fire({
+        title: "Success!",
+        text: "Withdraw successful!",
+        icon: "success",
+        confirmButtonText: "OK",
+        width: "400px",
+        background: "#f4f4f4", // Couleur d'arrière-plan
+        confirmButtonColor: "#0553F7",
+      });
     } catch (err) {
       console.error("Error during withdrawal:", err);
     }
@@ -262,6 +304,48 @@ function App() {
       console.error("Error connecting wallet:", err);
     }
   });
+
+  const copyReferralLink = () => {
+    if (walletAddress) {
+      // Générer le lien de parrainage avec l'adresse du wallet
+      const referralLink = `${window.location.origin}/?ref=${walletAddress}`;
+      navigator.clipboard
+        .writeText(referralLink)
+        .then(() =>
+          Swal.fire({
+            title: "Success!",
+            text: "Referral link copied to clipboard!",
+            icon: "success",
+            confirmButtonText: "OK",
+            width: "400px",
+            background: "#f4f4f4", // Couleur d'arrière-plan
+            confirmButtonColor: "#0553F7",
+          })
+        )
+
+        .catch(() =>
+          Swal.fire({
+            title: "Oops...",
+            text: "Failed to copy referral link.",
+            icon: "error",
+            confirmButtonText: "OK",
+            width: "400px",
+            background: "#f4f4f4", // Couleur d'arrière-plan
+            confirmButtonColor: "#0553F7",
+          })
+        );
+    } else {
+      Swal.fire({
+        title: "Oops...",
+        text: "Connect your wallet to generate a referral link.",
+        icon: "error",
+        confirmButtonText: "OK",
+        width: "400px",
+        background: "#f4f4f4", // Couleur d'arrière-plan
+        confirmButtonColor: "#0553F7",
+      });
+    }
+  };
 
   useEffect(() => {
     const getPrice = async () => {
@@ -296,9 +380,8 @@ function App() {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            marginTop: "10px",
             marginBottom: "10px",
-            paddingRight: "30px",
+            paddingRight: "40px",
           }}
         >
           <img src={logo} alt="Logo" className="logo" />
@@ -307,13 +390,7 @@ function App() {
       </BOX>
 
       <Section2>
-      <div style={{
-                  
-                  marginTop: "20px",
-                  marginBottom: "10px",
-                }}>
         <hr className="custom-hr"></hr>
-        </div>
         <p className="custom-font">
           The $BRETT reward pool with the richest daily return and lowest dev
           fee, daily income of up to 12% and a referral bonus of 10%. &nbsp;
@@ -598,7 +675,33 @@ function App() {
         </p>
       </Section>
 
-      <Section>
+      <Section2>
+        <div
+          className="flex items-center"
+          style={{ display: "flex", alignItems: "center" }}
+        >
+          <h1
+            className="custom-font"
+            style={{ margin: 0, paddingRight: "10px" }}
+          >
+            <strong>REFERAL LINK</strong>
+          </h1>
+          <span
+            style={{ flex: 1, height: "1px", backgroundColor: "black" }}
+          ></span>
+        </div>
+
+        <ReferralSection
+          className="custom-font"
+          style={{ textAlign: "center" }}
+        >
+          <Button className="button-87" onClick={copyReferralLink}>
+            Copy Referral Link
+          </Button>
+        </ReferralSection>
+      </Section2>
+
+      <Section style={{ paddingTop: "20px" }}>
         <h1
           className="custom-font"
           style={{ fontWeight: "bold", textAlign: "center" }}
@@ -693,32 +796,6 @@ function App() {
           </p>
         </div>
       </Section>
-
-      <Section2>
-        <div
-          className="flex items-center"
-          style={{ display: "flex", alignItems: "center" }}
-        >
-          <h1
-            className="custom-font"
-            style={{ margin: 0, paddingRight: "10px" }}
-          >
-            <strong>REFERAL LINK</strong>
-          </h1>
-          <span
-            style={{ flex: 1, height: "1px", backgroundColor: "black" }}
-          ></span>
-        </div>
-
-        <ReferralSection
-          className="custom-font"
-          style={{ textAlign: "center" }}
-        >
-          <Button className="button-87" onClick={copyReferralLink}>
-            Copy Referral Link
-          </Button>
-        </ReferralSection>
-      </Section2>
 
       <div className="social-icons-container">
         <div className="telegram-icon">
